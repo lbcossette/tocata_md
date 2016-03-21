@@ -1,0 +1,457 @@
+#!usr/bin/python
+
+import os
+import re
+import sys
+import math
+import numpy as np
+import mdtraj as md
+
+########################################################################
+#																	   #
+#					   		Calculate distances						   #
+#																	   #
+########################################################################
+
+def traj_distance(trajin, dists):
+#
+	print("Loading distances...")
+	
+	pairs = None
+	
+	for dist in dists:
+	#
+		match = re.match("(\w+?\d+)\.(\w+) (\w+?\d+)\.(\w+)$", dist)
+		
+		if match:
+		#
+			sel_str = "(resSeq {:s} and name {:s}) or (resSeq {:s} and name {:s})".format(match.group(1), match.group(2), match.group(3), match.group(4))
+			
+			new_pair = np.array([trajin.top.select(sel_str)])
+			
+			print(new_pair)
+			
+			if pairs is None:
+			#
+				pairs = new_pair
+			#
+			else:
+			#
+				pairs = np.append(pairs, new_pair, axis=0)
+			#
+		#
+		else:
+		#
+			raise Exception("Feature format \"{:s}\" is invalid in a distance measurement context.".format(dist))
+		#
+	#
+	
+	print("Done.")
+	
+	return (md.compute_distances(trajin, pairs), pairs)
+#
+
+########################################################################
+#																	   #
+#			      	   Calculate specific dihedrals 				   #
+#																	   #
+########################################################################
+
+def traj_dihedrals(trajin, dihedrals):
+#
+	print("Loading dihedrals...")
+	
+	quartets = None
+	
+	for dihedral in dihedrals:
+	#
+		match = re.match("(\w+?\d+)\.(\w+) (\w+?\d+)\.(\w+) (\w+?\d+)\.(\w+) (\w+?\d+)\.(\w+)$", dihedral)
+		
+		if match:
+		#
+			sel_str = "(resSeq {:s} and name {:s}) or (resSeq {:s} and name {:s}) or (resSeq {:s} and name {:s}) or (resSeq {:s} and name {:s})".format(match.group(1), match.group(2), match.group(3), match.group(4), match.group(5), match.group(6), match.group(7), match.group(8))
+			
+			new_quartet = np.array([trajin.top.select(sel_str)])
+			
+			print(new_quartet)
+			
+			if quartets is None:
+			#
+				quartets = new_quartet
+			#
+			else:
+			#
+				quartets = np.append(quartets, new_quartet, axis=0)
+			#
+		#
+		else:
+		#
+			raise Exception("Feature format \"{:s}\" is invalid in a dihedral measurement context.".format(dist))
+		#
+	#
+	
+	print("Done.")
+	
+	return np.sin(md.compute_dihedrals(trajin, quartets))
+#
+
+########################################################################
+#																	   #
+#			      		Calculate dihedral classes					   #
+#																	   #
+########################################################################
+
+def traj_dihedral_classes(trajin, dihedral_classes):
+#
+	calc_dihedrals = None
+	
+	for dihedral_class in dihedral_classes:
+	#
+		if dihedral_class is "phi":
+		#
+			
+		#
+		
+		if dihedral_class is "psi":
+		#
+			
+		#
+		
+		if dihedral_class is "chi1":
+		#
+			
+		#
+		
+		if dihedral_class is "chi2":
+		#
+			
+		#
+		
+		if dihedral_class is "chi3":
+		#
+			
+		#
+		
+		if dihedral_class is "chi4":
+		#
+			
+		#
+	#
+#
+
+def traj_load(trajin, topol, dists, dihedrals, dihedral_classes):
+#
+	frames = []
+	
+	frame_ids = []
+	
+	for traj in trajin:
+	#
+		print("Loading trajectory {:s}...".format(trajin))
+		
+		traj1 = md.load(traj, top=topol) # !! # The "topology" (the .gro file) must be included if the trajectory comes from GROMACS
+		
+		print("Done.")
+		
+		features = None
+		
+		feature_ids = None
+		
+		if dists and isinstance(dists, list)
+		#
+			calc_dists, dist_ids = traj_distance(traj1, dists)
+			
+			features = calc_dists
+			
+			feature_ids = dist_ids
+		#
+		
+		
+	#
+#
+
+########################################################################
+#																	   #
+#					 	  Load trajectory(ies)						   #
+#																	   #
+########################################################################
+
+dihedrals = []
+
+dihedral_ids = []
+
+max_len = 0
+
+for trajin in trajins:
+#
+	print("Loading trajectory {:s}...".format(trajin))
+	
+	traj1 = md.load(trajin, top=topin) # !! # The "topology" (the .gro file) must be included if the trajectory comes from GROMACS
+	
+	print("Done.")
+	
+	# .. # Compute dihedrals
+
+	print("Computing dihedrals...")
+
+	phi_atoms, phi = md.compute_phi(traj1)
+	psi_atoms, psi = md.compute_psi(traj1)
+	chi1_atoms, chi1 = md.compute_chi1(traj1)
+	chi2_atoms, chi2 = md.compute_chi2(traj1)
+	#chi3_atoms, chi3 = md.compute_chi3(traj1)
+	#chi4_atoms, chi4 = md.compute_chi4(traj1)
+
+	print("Done.")
+
+	# .. # Regroup dihedrals in one container
+	
+	print("Grouping dihedrals...")
+	
+	dihedrals_temp = phi
+	
+	dihedrals_temp = np.append(dihedrals_temp, psi, axis=1)
+	dihedrals_temp = np.append(dihedrals_temp, chi1, axis=1)
+	dihedrals_temp = np.append(dihedrals_temp, chi2, axis=1)
+	#dihedrals_temp = np.append(dihedrals_temp, chi3, axis=1)
+	#dihedrals_temp = np.append(dihedrals_temp, chi4, axis=1)
+	
+	dihedrals.append(dihedrals_temp)
+	
+	del phi
+	del psi
+	del chi1
+	del chi2
+	#del chi3
+	#del chi4
+	
+	print("Done.")
+	
+	if not dihedral_ids:
+	#
+		print("Storing angle information...")
+
+		# .. # Store information about each angle in one single container
+		# !! # The residue indexes are not representative of how they actually are numbered. Gaps and author-assigned residue numbers are not considered for practical, computational purposes. Blame MDTraj.
+
+		for phiparts in phi_atoms:
+		#
+			dihedral_ids.append(["phi", traj1.top.atom(phiparts[3]).residue.name, traj1.top.atom(phiparts[3]).residue.index + 18])
+		#
+		for psiparts in psi_atoms:
+		#
+			dihedral_ids.append(["psi", traj1.top.atom(psiparts[0]).residue.name, traj1.top.atom(psiparts[0]).residue.index + 18])
+		#
+		for chi1parts in chi1_atoms:
+		#
+			dihedral_ids.append(["chi1", traj1.top.atom(chi1parts[0]).residue.name, traj1.top.atom(chi1parts[0]).residue.index + 18])
+		#
+		for chi2parts in chi2_atoms:
+		#
+			dihedral_ids.append(["chi2", traj1.top.atom(chi2parts[0]).residue.name, traj1.top.atom(chi2parts[0]).residue.index + 18])
+		#
+		#for chi3parts in chi3_atoms:
+		#
+			#dihedral_ids.append(["chi3", traj1.top.atom(chi3parts[0]).residue.name, traj1.top.atom(chi3parts[0]).residue.index + 18])
+		#
+		#for chi4parts in chi4_atoms:
+		#
+			#dihedral_ids.append(["chi4", traj1.top.atom(chi4parts[0]).residue.name, traj1.top.atom(chi4parts[0]).residue.index + 18])
+		#
+
+		del phi_atoms
+		del psi_atoms
+		del chi1_atoms
+		del chi2_atoms
+		#del chi3_atoms
+		#del chi4_atoms
+	
+		print("Done.")
+	#
+#
+
+print("Binning angles into quadrants and calculating sine/cosine...")
+
+########################################################################
+#																	   #
+#					   Reconstruct periodicity						   #
+#																	   #
+########################################################################
+
+#dihedrartifs = np.array([[0]*4]*len(dihedrals[0][0]))
+
+for k in range(len(dihedrals)):
+#
+	print("Processing trajectory {:d}...".format(k))
+	
+	for j in range(0,len(dihedrals[0][0])):
+	#
+		isphi = False
+	
+		if dihedral_ids[j][0] is "phi":
+		#
+			isphi = True
+		#
+	
+		#dihedrartifs[j] = [0,0,0,0]
+	
+		for i in range(0,len(dihedrals[k])):
+		#
+			# .. # Bin angles in quadrants to avoid some possible non-periodicity or periodicity artifacts
+			# <> # Angle binning is commented for practical purposes
+			
+			#if dihedrals[k][i][j] >= math.radians(-180) and dihedrals[k][i][j] <= math.radians(-90):
+			#
+				#dihedrartifs[j][0] += 1
+			#
+			#elif dihedrals[k][i][j] >= math.radians(-90) and dihedrals[k][i][j] <= math.radians(0):
+			#
+				#dihedrartifs[j][1] += 1
+			#
+			#elif dihedrals[k][i][j] >= math.radians(0) and dihedrals[k][i][j] <= math.radians(90):
+			#
+				#dihedrartifs[j][2] += 1
+			#
+			#elif dihedrals[k][i][j] >= math.radians(90) and dihedrals[k][i][j] <= math.radians(180):
+			#
+				#dihedrartifs[j][3] += 1
+			#
+		
+			if isphi: # .. # The less-occupied areas for phi in the general Ramachandran plot are 0 and 180. Using cosine ensures minimal distortion of occupied space while avoiding breaks in periodicity
+			#
+				dihedrals[k][i][j] = math.cos(dihedrals[k][i][j])
+			#
+			else: # .. # The less-occupied areas for psi in the general Ramachandran plot are -90 and 90 and the most stable chi angles are mostly at 60, -60 and 180. Sine fits better in that case.
+			#
+				dihedrals[k][i][j] = math.sin(dihedrals[k][i][j])
+			#
+		#
+	#
+#
+
+#print(dihedrartifs)
+#print(dihedrals)
+#print(dihedrinfo)
+
+print("Done.")
+
+# .. # Evaluate the difference between projected and real best mean structures
+
+min_norm_proj = 10000000.00000
+
+for i in range(len(dihedral_projs[0])):
+#
+	temp = np.linalg.norm(dihedral_projs[0][i])
+	
+	if temp < min_norm:
+	#
+		min_norm_proj = temp
+		
+		print("Frame {:d} with norm {:f} :".format(i, temp))
+		
+		for j in range(len(dihedral_projs[0][i])):
+		#
+			print(dihedral_projs[0][i][j])
+		#
+	#
+#
+
+min_norm = 10000000.00000
+
+for i in range(len(dihedrals)):
+#
+	temp = 0
+	
+	for j in range(len(temp)):
+	#
+		temp += (dihedrals[i][j] - tica_mov.means_[j])**2
+	#
+	
+	temp = math.sqrt(temp)
+	
+	if temp < min_norm:
+	#
+		min_norm = temp
+		
+		print("Frame {:d} with norm {:f}.".format(i, temp))
+	#
+#
+
+# .. # Find the mean of each angle with its variation amplitude
+
+angmeans = tica_mov.means_
+angvars = tica_mov.components_
+
+for i in range(len(angmeans)):
+#
+	#print("Mean trig :\n{:f}".format(angmeans[i]))
+	#print("S.D. trig :")
+	
+	#for j in range(len(angvars)):
+	#
+		#print(angvars[j][i])
+	#
+	
+	if dihedral_ids[i][0] is "phi":
+	#
+		if (dihedrartifs[i][0] + dihedrartifs[i][1]) / len(dihedrals) >= 0.5:
+		#
+			for j in range(len(angvars)):
+			#
+				angvars[j][i] = angvars[j][i] / math.sqrt(1 - angmeans[i]*angmeans[i])
+			#
+			
+			angmeans[i] = -1*math.acos(angmeans[i])
+		#
+		else:
+		#
+			for j in range(len(angvars)):
+			#
+				angvars[j][i] = -1 * angvars[j][i] / math.sqrt(1 - angmeans[i]*angmeans[i])
+			#
+			
+			angmeans[i] = math.acos(angmeans[i])
+		#
+	#
+	else:
+	#
+		if (dihedrartifs[i][0] + dihedrartifs[i][3]) / len(dihedrals) >= 0.5:
+		#
+			if angmeans[i] > 0:
+			#
+				for j in range(len(angvars)):
+				#
+					angvars[j][i] = -1 * angvars[j][i] / math.sqrt(1 - angmeans[i]*angmeans[i])
+				#
+				
+				angmeans[i] = math.radians(180) - math.asin(angmeans[i])
+			#
+			elif angmeans[i] < 0:
+			#
+				for j in range(len(angvars)):
+				#
+					angvars[j][i] = -1 * angvars[j][i] / math.sqrt(1 - angmeans[i]*angmeans[i])
+				#
+				
+				angmeans[i] = -1*(math.radians(180) + math.asin(angmeans[i]))
+			#
+			else:
+			#
+				for j in range(len(angvars)):
+				#
+					angvars[j][i] = angvars[j][i]
+				#
+				
+				angmeans[i] = math.radians(180)
+			#
+		#
+		else:
+		#
+			for j in range(len(angvars)):
+			#
+				angvars[j][i] = angvars[j][i] / math.sqrt(1 - angmeans[i]*angmeans[i])
+			#
+			
+			angmeans[i] = math.asin(angmeans[i])
+		#
+	#
+#
