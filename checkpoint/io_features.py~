@@ -17,7 +17,7 @@ def print_tica(tica_tot, equil, equil_dists, n_comp, usable_comps, frameskip, sa
 #
 	wf = open(savepath, 'w')
 	
-	wf.write("In equilibrium : ")
+	wf.write("equil : ")
 	
 	if equil:
 	#
@@ -28,15 +28,15 @@ def print_tica(tica_tot, equil, equil_dists, n_comp, usable_comps, frameskip, sa
 		wf.write("False\n")
 	#
 	
-	wf.write("Equilibrium distributions : {:d}\n".format(equil_dists))
+	wf.write("equil_dists : {:d}\n".format(equil_dists))
 	
-	wf.write("Amount of usable components : {:d}\n".format(usable_comps))
+	wf.write("usable_comps : {:d}\n".format(usable_comps))
 	
-	wf.write("Amount of relevant components : {:d}\n".format(n_comp))
+	wf.write("n_comp : {:d}\n".format(n_comp))
 	
-	wf.write("Number of frames skipped : {:d}\n".format(frameskip))
+	wf.write("frameskip : {:d}\n".format(frameskip))
 	
-	wf.write("Number of features : {:d}\n".format(len(tica_tot.means_)))
+	wf.write("n_features : {:d}\n".format(len(tica_tot.means_)))
 	
 	wf.write("tICA\n")
 	
@@ -114,75 +114,62 @@ def load_tica(loadpath):
 #
 	rf = open(loadpath, 'r')
 	
-	equil = None 
-	equil_dists = None
-	n_comp = None
-	usable_comps = None 
-	frameskip = None
-	n_feat = None
-	tica_tot = None
+	side_dict = {'equil' : None, 'equil_dists' : 0, 'n_comp' : 0, 'usable_comps' : 0, 'frameskip' : 0, 'n_features' : 0}
 	
-	components = None
-	offset_correlation = None
-	eigenvalues = None
-	eigenvectors = None
-	means = None
-	n_observations = None
-	n_sequences = None
-	timescales = None
+	tica_tot = None
+	tica_dict = None
 	
 	attribute = None
-	pos_i = 0
-	pos_j = 0
+	pos_i = -1
+	pos_j = -1
 	
 	for line in rf:
 	#
-		m = re.match("\s", line)
+		m = re.match("\s\s\s([\d\.]+)", line)
 		
 		if m:
 		#
-			m = re.match("\s\s", line)
+			pos_j += 1
+					
+			tica_dict[attribute][pos_i][pos_j] = float(m.group(1))
+		#
+		else:
+		#
+			m = re.match("\s\s([\d\.]+)", line)
 			
 			if m:
 			#
-				m = re.match("\s\s\s", line)
+				pos_i += 1
+				
+				tica_dict[attribute][pos_i] = float(m.group(1))
+			#
+			else:
+			#
+				m = re.match("\s\s[\w\s]+", line)
 				
 				if m:
 				#
+					pos_i += 1
 					
+					pos_j = -1
 				#
 				else:
 				#
+					m = re.match("\s([\w\_]+)", line)
 					
+					if m:
+					#
+						attribute = m.group(1)
+						
+						pos_i = -1
+						
+						continue
+					#
 				#
 			#
-			else:
-			#
-				
-			#
 		#
 		
-		m = re.match("In equilibrium : ", line)
-		
-		if m:
-		#
-			if re.search("True", line):
-			#
-				equil = True
-			#
-			elif re.search("False", line):
-			#
-				equil = False
-			#
-			else:
-			#
-				raise Exception("Equilibrium value could not be parsed.")
-			#
-			
-			continue
-		#
-		
-		m = re.match("Equilibrium distributions : (\d+)", line)
+		m = re.match("equil_dists : (\d+)", line)
 		
 		if m:
 		#
@@ -191,7 +178,7 @@ def load_tica(loadpath):
 			continue
 		#
 		
-		m = re.match("Amount of usable components : (\d+)", line)
+		m = re.match("usable_comps : (\d+)", line)
 		
 		if m:
 		#
@@ -200,7 +187,7 @@ def load_tica(loadpath):
 			continue
 		#
 		
-		m = re.match("Amount of relevant components : (\d+)", line)
+		m = re.match("n_comp : (\d+)", line)
 		
 		if m:
 		#
@@ -209,7 +196,7 @@ def load_tica(loadpath):
 			continue
 		#
 		
-		m = re.match("Number of frames skipped : (\d+)", line)
+		m = re.match("frameskip : (\d+)", line)
 		
 		if m:
 		#
@@ -218,11 +205,11 @@ def load_tica(loadpath):
 			continue
 		#
 		
-		m = re.match("Number of features : (\d+)", line)
+		m = re.match("n_features : (\d+)", line)
 		
 		if m:
 		#
-			n_feat = int(m.group(1))
+			n_features = int(m.group(1))
 			
 			continue
 		#
@@ -237,14 +224,13 @@ def load_tica(loadpath):
 			#
 			else:
 			#
-				components = [[0.0 for i in range(n_feat)] for i in range(n_feat)]
-				offset_correlation = [[0.0 for i in range(n_feat)] for i in range(n_feat)]
-				eigenvalues = [0.0 for i in range(n_feat)]
-				eigenvectors = [[0.0 for i in range(n_feat)] for i in range(n_feat)]
-				means = [0.0 for i in range(n_feat)]
-				timescales = [0.0 for i in range(n_feat)]
+				tica_dict = {'components' : [[0.0 for i in range(n_feat)] for i in range(n_feat)], 'offset_correlation' : [[0.0 for i in range(n_feat)] for i in range(n_feat)], 'eigenvalues' : [0.0 for i in range(n_feat)], 'eigenvectors' : [[0.0 for i in range(n_feat)] for i in range(n_feat)], 'means' : [0.0 for i in range(n_feat)], 'timescales' : [0.0 for i in range(n_feat)], 'n_observations' : 0, 'n_sequences' : 0}
+				
+				continue
 			#
 		#
+		
+		raise Exception("Could not read line correctly")
 	#
 	
 	return tica_tot, equil, equil_dists, n_comp, usable_comps, frameskip
