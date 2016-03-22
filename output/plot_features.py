@@ -82,6 +82,51 @@ def manageable(length):
 
 ########################################################################
 #																	   #
+#	 	   		  Get the estimated range of a dataset				   #
+#																	   #
+########################################################################
+
+
+def get_range(means, sigmas):
+#
+	extrema = [[m+6.0*v for m,v in zip(means[0], sigmas[0])], [m-6.0*v for m,v in zip(means[0], sigmas[0])]]
+	
+	for i in range(len(means)):
+	#
+		extrema.append([m+6.0*v for m,v in zip(means[i], sigmas[i])])
+		extrema.append([m-6.0*v for m,v in zip(means[i], sigmas[i])])
+	#
+	
+	x_range = [extrema[0][0], extrema[0][0]]
+	y_range = [extrema[0][1], extrema[0][1]]
+	
+	for i in range(len(extrema)):
+	#
+		if extrema[i][0] > x_range[1]:
+		#
+			x_range[1] = extrema[i][0]
+		#
+		elif extrema[i][0] < x_range[0]:
+		#
+			x_range[0] = extrema[i][0]
+		#
+		
+		if extrema[i][1] > y_range[1]:
+		#
+			y_range[1] = extrema[i][1]
+		#
+		elif extrema[i][1] < y_range[0]:
+		#
+			y_range[0] = extrema[i][1]
+		#
+	#
+	
+	return x_range, y_range
+#
+
+
+########################################################################
+#																	   #
 #	 		  Plot point density for each pair of components		   #
 #																	   #
 ########################################################################
@@ -167,11 +212,11 @@ def plot_density(ic_slice, skip, savepath):
 ########################################################################
 
 
-def plot_hmm(ic_slice, model, skip, savepath):
+def plot_hmm(ic_slice, means, sigmas, skip, savepath):
 #
 	print("Generating ellipses...")
 	
-	ells = [Ellipse(xy = [model.means_[i][0], model.means_[i][1]], width=1.96*math.sqrt(model.vars_[i][0]), height=1.96*math.sqrt(model.vars_[i][1]), angle=0) for i in range(len(model.means_))]
+	ells = [Ellipse(xy = [means[i][0], means[i][1]], width=1.96*math.sqrt(sigmas[i][0]), height=1.96*math.sqrt(sigmas[i][1]), angle=0) for i in range(len(means))]
 	
 	fig, ax = plt.subplots()
 	
@@ -285,11 +330,13 @@ def density(x, y, means, sigma, weights):
 ########################################################################
 
 
-def plot_estimate(means, sigma, weights, x_range, y_range, savepath):
+def plot_estimate(means, sigma, weights, savepath):
 #
 	print("Generating density estimate...")
 	
 	image = np.empty([1000,1000])
+	
+	x_range, y_range = get_range(means, sigma)
 	
 	for i in range(1000):
 	#

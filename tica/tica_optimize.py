@@ -1,6 +1,5 @@
 from msmbuilder.decomposition import tICA
 import math
-import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -98,66 +97,6 @@ def find_components(traj_tica, max_i):
 
 ########################################################################
 #																	   #
-#	 			Plot calculated slopes for each component			   #
-#																	   #
-########################################################################
-
-
-def plot_slopes(traj_tica, max_i):
-#
-	slopes = None
-	
-	for i in range(2, max_i - 2):
-	#
-		local_slope = (traj_tica.timescales_[i+2] - traj_tica.timescales_[i-2])/8.0 + (traj_tica.timescales_[i+2] + traj_tica.timescales_[i+1] - traj_tica.timescales_[i-1] - traj_tica.timescales_[i-2])/12.0
-		
-		if slopes is None:
-		#
-			slopes = np.array([local_slope])
-		#
-		else:
-		#
-			slopes = np.append(slopes, [local_slope])
-		#
-	#
-	
-	plt.plot(np.arange(2, max_i - 2, 1), slopes)
-	
-	plt.show()
-#
-
-
-########################################################################
-#																	   #
-#	 		   Plot calculated timescales for each component		   #
-#																	   #
-########################################################################
-
-
-def plot_timescales(traj_tica, max_i):
-#
-	timescales = None
-	
-	for i in range(0, max_i):
-	#
-		if timescales is None:
-		#
-			timescales = np.array([traj_tica.timescales_[i]])
-		#
-		else:
-		#
-			timescales = np.append(timescales, [traj_tica.timescales_[i]])
-		#
-	#
-	
-	plt.plot(np.arange(0, max_i, 1), timescales)
-	
-	plt.show()
-#
-
-
-########################################################################
-#																	   #
 #	 			 			  Perform tICA							   #
 #																	   #
 ########################################################################
@@ -167,15 +106,15 @@ def make_tica_opt(trajectories_t, timeskip_t):
 #
 	frameskip = 0
 	
-	if int(math.ceil(200000.0/float(timeskip_t))) > len(trajectories_t[0])/2:
+	if int(math.ceil(200000.0/timeskip_t)) > len(trajectories_t[0])/2:
 	#
 		frameskip = int(len(trajectories_t[0])/2)
 		
-		print("Frameskip {:f} ns ({:d} frames) :".format(float(len(trajectories_t[0])/2)*float(timeskip_t)/1000.0, frameskip))
+		print("Frameskip {:f} ns ({:d} frames) :".format(float(len(trajectories_t[0])/2)*timeskip_t/1000.0, frameskip))
 	#
 	else:
 	#
-		frameskip = int(math.ceil(200000.0/float(timeskip_t)))
+		frameskip = int(math.ceil(200000.0/timeskip_t))
 		
 		print("Frameskip {:d} ns ({:d} frames) :".format(200, frameskip))
 	#

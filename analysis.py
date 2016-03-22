@@ -6,10 +6,11 @@ import mdtraj as md
 from traj.load_features import traj_distances, traj_dihedrals, traj_dihedral_classes, load_feature_file
 from tica.tica_optimize import in_equil, find_components, make_tica_opt
 from output.plot_features import plot_slopes, plot_timescales, plot_density, manageable, plot_hmm, plot_estimate, plot_popl_1d, plot_estimate_1d, plot_BICs
-from hmm.hmm_optimize import md_populations, make_hmm, hmm_arbitrary
+from hmm.hmm_optimize import md_populations, make_hmm, hmm_arbitrary, make_hmm_fullauto
 from hmm.inheritance import combine_hmm_1d
-from checkpoint.io_results import print_tica, print_tica_projs
+from checkpoint.io_results import print_tica, print_tica_projs, print_centroids
 import numpy as np
+import math
 
 
 ########################################################################
@@ -23,7 +24,6 @@ parser = ArgumentParser()
 
 parser.add_argument("-i", "--input", nargs='*')
 parser.add_argument("-p", "--topol")
-parser.add_argument("-d", "--dimensions") # .. # Number of dimensions for each projection
 parser.add_argument("-f", "--features") # .. # Feature file
 parser.add_argument("-t", "--time") # .. # Time between frames in ps
 parser.add_argument("-o", "--output")
@@ -32,7 +32,6 @@ args = vars(parser.parse_args())
 
 trajins = args["input"]
 topin = args["topol"]
-dims = int(args["dimensions"])
 f_file = args["features"]
 timeskip = float(args["time"])
 trajout = args["output"]
@@ -210,129 +209,80 @@ ic_projs = tica_tot.transform(trajectories)
 
 print_tica_projs(ic_projs, "{:s}_projs.dat".format(trajout))
 
-#print("ic_projs :")
-#print(len(ic_projs))
-#print(np.shape(ic_projs[0]))
+all_hmms, all_BICs, all_BIC_mins, dims, pos = make_hmm_fullauto(ic_projs, equil_dists, n_comp, tica_tot.n_observations_)
 
-print("Splitting results into bundles of {:d} component(s)...".format(dims))
+hmm_opti = all_hmms[pos]
 
-splits = np.arange(dims, n_comp + dims - 1, dims)
+BICs = all_BICs[pos]
 
-ic_splits = [None]*len(splits)
+ic_slice = [ic_projs[0][:,:dims]]
 
-for i in range(len(ic_projs)):
+for i in range(1, len(ic_projs)):
 #
-	temp_split = np.split(ic_projs[i], splits, axis=1)
+	ic_slice = [ic_projs[i][:,:dims]]
+#
+
+state_centers, mean_approx = hmm_opti.draw_centroids(ic_slice)
+
+print("HMM with {:d} dimensions and {:d} states :".format(len(hmm_opti.means_[0]), len(hmm_opti.means_)))
+print("Means :")
+print(hmm_opti.means_)
+print("Vars :")
+print(hmm_opti.vars_)
+print("Timescales :")
+print(hmm_opti.timescales_)
+print("Populations :")
+print(hmm_opti.populations_)
+print("Transition matrix :")
+print(hmm_opti.transmat_)
+print("Centroids :")
+print(state_centers)
+
+#plot_BICs(BICs, "{:s}_EVecs_{:d}_{:d}_BICs.pdf".format(trajout, 2*i+1, 2*i+2))
+
+print_centroids(hmm_opti, trajins, topin, timeskip, state_centers, trajout)
+
+for i in range(0, len(hmm_opti.means_[0]), 2):
+#
+	mean_slice = None
+	var_slice = None
+	ic_split = None
 	
-	del temp_split[-1]
-	
-	temp_array = np.array(temp_split)
-	
-	del temp_split
-	
-	#print(np.shape(temp_array))
-	#print(np.shape(temp_array[0]))
-	
-	for j in range(len(temp_array)):
+	if i == 0:
 	#
-		if ic_splits[j] is None:
+		mean_slice = hmm_opti.means_[:,:2]
+		var_slice = hmm_opti.vars_[:,:2]
+		
+		ic_split = [ic_projs[0][:,:2]]
+		for i in range(1, len(ic_projs)):
 		#
-			print(j)
-			
-			ic_splits[j] = []
+			ic_split = [ic_projs[i][:,:2]]
 		#
+	#
+	elif i+2 == len(hmm_opti.means_[0]):
+	#
+		mean_slice = hmm_opti.means_[:,i-1:]
+		var_slice = hmm_opti.vars_[:,i-1:]
 		
-		ic_splits[j].append(temp_array[j])
+		ic_split = [ic_projs[0][:,i-1:i+2]]
+		for i in range(1, len(ic_projs)):
+		#
+			ic_split = [ic_projs[i][:,i-1:i+2]]
+		#
 	#
-	
-	#print(len(ic_splits[0]))
-#
-
-#print(len(ic_splits))
-#print(len(ic_splits[0]))
-#print(np.shape(ic_splits[0][0]))
-
-total_length = 0
-
-for i in range(len(ic_splits[0])):
-#
-	total_length += len(ic_splits[0][0])
-#
-
-print("Perform clustering on component projections...")
-
-all_hmms = []
-#all_KLD_Hs = []
-all_ranges = []
-
-#arbitrary = [4, 1]
-
-for i in range(len(ic_splits)):
-#
-	if dims == 2:
+	else:
 	#
-		print("Plotting components...")
-		plot_density(ic_splits[i], manageable(total_length), "{:s}_EVecs_{:d}_{:d}_density.pdf".format(trajout, 2*i+1, 2*i+2))
-	#
-	#elif dims == 1:
-	#
-		#print("Plotting components...")
-		#plot_popl_1d(ic_splits[i], "{:s}_EVec_{:d}_popl.pdf".format(trajout, i+1), 100)
-	#
-	
-	hmm_opti, ranges, populations, hmm_populations, BICs = make_hmm(ic_splits[i], 100, dims)
-	#hmm_opti, ranges, populations, populations, BIC = hmm_arbitrary(ic_splits[i], 100, dims, arbitrary[i]) 
-	
-	state_centers, mean_approx = hmm_opti.draw_centroids(ic_splits[i])
-	
-	print("Split {:d} :".format(i+1))
-	print("HMM {:d}...".format(len(hmm_opti.means_)))
-	print("Means :")
-	print(hmm_opti.means_)
-	print("Vars :")
-	print(hmm_opti.vars_)
-	print("Timescales :")
-	print(hmm_opti.timescales_)
-	print("Populations :")
-	print(hmm_opti.populations_)
-	print("Transition matrix :")
-	print(hmm_opti.transmat_)
-	print("Centroids :")
-	print(state_centers)
-	print(mean_approx)
-	
-	plot_BICs(BICs, "{:s}_EVecs_{:d}_{:d}_BICs.pdf".format(trajout, 2*i+1, 2*i+2))
-	
-	if dims == 2:
-	#
-		plot_hmm(ic_splits[i], hmm_opti, manageable(total_length), "{:s}_EVecs_{:d}_{:d}_clusters.pdf".format(trajout, 2*i+1, 2*i+2))
+		mean_slice = hmm_opti.means_[:,i-1:i+2]
+		var_slice = hmm_opti.vars_[:,i-1:i+2]
 		
-		plot_estimate(hmm_opti.means_, hmm_opti.vars_, hmm_opti.populations_, ranges[0], ranges[1], "{:s}_EVecs_{:d}_{:d}_estimate.pdf".format(trajout, 2*i+1, 2*i+2))
-	#
-	#elif dims == 1:
-	#
-		#plot_estimate_1d(hmm_opti.means_, hmm_opti.vars_, hmm_opti.populations_, ranges[0], "{:s}_EVec_{:d}_estimate.pdf".format(trajout, i+1), 100)
+		ic_split = [ic_projs[0][:,i-1:i+2]]
+		for i in range(1, len(ic_projs)):
+		#
+			ic_split = [ic_projs[i][:,i-1:i+2]]
+		#
 	#
 	
-	all_hmms.append(hmm_opti)
-	#all_KLD_Hs.append(KLD_H_opti)
-	all_ranges.append(ranges)
-#
-
-#means_fusion, vars_fusion, popls_fusion = combine_hmm_1d(ic_splits, all_hmms)
-
-#for i in range(len(means_fusion)):
-#
-	#if dims == 1:
-	#
-		#print("Fusion {:d} :".format(i+1))
-		
-		#print(means_fusion[i])
-		#print(vars_fusion[i])
-		#print(popls_fusion[i])
-		#print(all_ranges[2*i][0])
-		#print(all_ranges[2*i+1][0])
-		
-		#plot_estimate(means_fusion[i], vars_fusion[i], popls_fusion[i], all_ranges[2*i][0], all_ranges[2*i+1][0], "{:s}_EVecs_{:d}_{:d}_estimate_fusion.pdf".format(trajout, 2*i+1, 2*i+2))
-	#
+	plot_hmm(ic_split, mean_slice, var_slice, manageable(tica_tot.n_observations_), "{:s}_EVecs_{:d}_{:d}_clusters.pdf".format(trajout, i+1, i+2))
+	
+	plot_estimate(mean_slice, var_slice, hmm_opti.populations_, "{:s}_EVecs_{:d}_{:d}_estimate.pdf".format(trajout, i+1, i+2))
 #

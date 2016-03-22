@@ -583,3 +583,180 @@ def hmm_arbitrary(ic_slice, dimension, dims, n_clusters):
 	
 	return hmm, ranges, populations, hmm_popl, BIC
 #
+
+
+########################################################################
+#																	   #
+#	 		  		 Fully automatic HMM generation					   #
+#																	   #
+########################################################################
+
+
+def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs):
+#
+	all_hmms = [None]
+	all_BICs = [None]
+	all_BIC_mins = [None]
+	min_dim = 0
+	pos = 0
+	
+	for i in range(equil_dists, n_comp+1):
+	#
+		print("Trying with {:d} dimensions...\n".format(i))
+		
+		ic_slice = [ic_projs[0][:,:i]]
+		
+		for i in range(1, len(ic_projs)):
+		#
+			ic_slice.append(ic_projs[i][:,:i])
+		#
+		
+		n_clusters = 0
+		
+		best_hmm = None
+		
+		BICs = np.zeros(1)
+		BIC_min = 0
+		
+		strike_max = 0
+		strike_min = 0
+		
+		while True:
+		#
+			n_clusters += 1
+			
+			print("Trying {:d} clusters...".format(n_clusters))
+			
+			hmm = GHMM(n_states=n_clusters, reversible_type='transpose', thresh=1e-4, init_algo='GMM', timing=True)
+			
+			print("Running fit...")
+			
+			hmm.fit(ic_slice)
+			
+			if n_obs > 10000:
+			#
+				BIC_hmm = (1.0 + 2.0 * float(i)) * float(n_clusters)**2 * math.log(n_obs) - 2.0 * hmm.fit_logprob_[0]
+			#
+			else:
+			#
+				BIC_hmm = (1.0 + 2.0 * float(i)) * float(n_clusters) * math.log(n_obs) - 2.0 * hmm.fit_logprob_[0]
+			#
+			
+			if BICs[0] == 0.0:
+			#
+				BICs[0] = BIC_hmm
+			#
+			else:
+			#
+				BICs = np.append(BICs, [BIC_hmm])
+			#
+			
+			if len(BICs) == 1:
+			#
+				best_hmm = deepcopy(hmm)
+			#
+			elif len(BICs) > 1:
+			#
+				if BICs[len(BICs)-1] >= BICs[len(BICs)-2]:
+				#
+					print("Strike max")
+					print("Current BIC:")
+					print(BIC_hmm)
+					print("Current min:")
+					print(BICs[BIC_min])
+					
+					strike_max += 1
+				#
+				else:
+				#
+					print("Reset max")
+					
+					strike_max = 0
+					
+					if BICs[len(BICs)-1] >= BICs[BIC_min]:
+					#
+						if len(BICs) > 2 and BICs[len(BICs)-2] <= BICs[len(BICs)-3]:
+						#
+							print("Carry min")
+							print("Current BIC:")
+							print(BIC_hmm)
+							print("Current min:")
+							print(BICs[BIC_min])
+						#
+						else:
+						#
+							print("Strike min")
+							print("Current BIC:")
+							print(BIC_hmm)
+							print("Current min:")
+							print(BICs[BIC_min])
+							
+							strike_min += 1
+						#
+					#
+					else:
+					#
+						print("Reset min")
+						print("Current BIC:")
+						print(BIC_hmm)
+						
+						strike_min = 0
+						
+						BIC_min = len(BICs)-1
+						
+						best_hmm = deepcopy(hmm)
+					#
+				#
+			#
+			
+			if n_clusters >= 10 and (strike_max >= 3 or strike_min >= 3):
+			#
+				print("Reached expected true minimum\n")
+				
+				break
+			#
+			
+			print("\n")
+		#
+		
+		if all_hmms[0] is None:
+		#
+			all_hmms[0] = deepcopy(best_hmm)
+			all_BICs[0] = BICs
+			all_BIC_mins[0] = BIC_min
+		#
+		else:
+		#
+			all_hmms.append(deepcopy(best_hmm))
+			all_BICs.append(BICs)
+			all_BIC_mins.append(BIC_min)
+			
+			print("Current slowest timescale :")
+			print(all_hmms[len(all_hmms)-1].timescales_[0])
+			print("Previous slowest timescale :")
+			print(all_hmms[len(all_hmms)-2].timescales_[0])
+			
+			if all_hmms[len(all_hmms)-1].timescales_[0] < all_hmms[len(all_hmms)-2].timescales_[0]:
+			#
+				print("Best HMM found with {:d} dimensions.".format(i-1))
+				
+				min_dim = i-1
+				
+				pos = len(all_hmms) - 2
+				
+				break
+			#
+		#
+	#
+	
+	if min_dim == 0:
+	#
+		print("Best HMM defaulted to {:d} dimensions.".format(n_comp))
+		
+		min_dim = n_comp
+		
+		pos = len(all_hmms) - 1
+	#
+	
+	return all_hmms, all_BICs, all_BIC_mins, min_dim, pos
+#
