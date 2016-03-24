@@ -486,23 +486,16 @@ def plot_estimate_1d(means, sigma, weights, x_range, savepath, dimension):
 ########################################################################
 
 
-def plot_BICs(BICs, savepath):
+def plot_BICs(all_BICs, all_dims, savepath):
 #
 	print("Plotting BICs...")
 	
-	n_clusters = np.array([1])
-	
-	for i in range(1,len(BICs)):
+	for i in range(len(all_BICs)):
 	#
-		n_clusters = np.append(n_clusters, [i+1])
+		n_clusters = np.arrange(1,len(all_BICs[i])+1)
+		
+		plt.plot(n_clusters, all_BICs[i], label = "{:d} dimensions".format(all_dims[i]))
 	#
-	
-	print(n_clusters)
-	print(len(n_clusters))
-	print(BICs)
-	print(len(BICs))
-	
-	plt.plot(n_clusters, BICs)
 	
 	plt.savefig(savepath)
 	plt.close()

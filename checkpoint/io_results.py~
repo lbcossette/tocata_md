@@ -343,7 +343,7 @@ def print_centroids(hmm, trajins, structin, timeskip, state_centers, trajout):
 		#
 			task = sub.Popen(["gmx", "trjconv -f {:s} -s {:s} -o {:s}_state_{:d}.pdb -pbc mol -ur compact -b {:f} -e {:f}".format(trajins[state_centers[i][0][0]], structin, trajout, i+1, (float(state_centers[i][0][1]) + 0.5)*timeskip, (float(state_centers[i][0][1]) + 1.5)*timeskip)], stdin = sub.PIPE)
 			
-			task.communicate("1")
+			task.communicate(1)
 			
 			wf.open("{:s}_states.dat".format(trajout), 'a')
 			

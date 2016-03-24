@@ -600,15 +600,26 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs):
 	min_dim = 0
 	pos = 0
 	
+	if equil_dists > n_comp:
+	#
+		temp = equil_dists
+		
+		equil_dists = n_comp
+		
+		n_comp = equil_dists
+		
+		del temp
+	#
+	
 	for i in range(equil_dists, n_comp+1):
 	#
 		print("Trying with {:d} dimensions...\n".format(i))
 		
 		ic_slice = [ic_projs[0][:,:i]]
 		
-		for i in range(1, len(ic_projs)):
+		for j in range(1, len(ic_projs)):
 		#
-			ic_slice.append(ic_projs[i][:,:i])
+			ic_slice.append(ic_projs[j][:,:i])
 		#
 		
 		n_clusters = 0
@@ -724,6 +735,8 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs):
 			all_hmms[0] = deepcopy(best_hmm)
 			all_BICs[0] = BICs
 			all_BIC_mins[0] = BIC_min
+			
+			min_dim = i
 		#
 		else:
 		#
@@ -749,14 +762,12 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs):
 		#
 	#
 	
+	all_dims = numpy.arrange(equil_dists, min_dim+2)
+	
 	if min_dim == 0:
 	#
-		print("Best HMM defaulted to {:d} dimensions.".format(n_comp))
-		
-		min_dim = n_comp
-		
-		pos = len(all_hmms) - 1
+		raise Exception("")
 	#
 	
-	return all_hmms, all_BICs, all_BIC_mins, min_dim, pos
+	return all_hmms, all_BICs, all_BIC_mins, min_dim, pos, all_dims
 #
