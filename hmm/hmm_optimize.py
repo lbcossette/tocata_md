@@ -762,7 +762,7 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs):
 		#
 	#
 	
-	all_dims = numpy.arrange(equil_dists, min_dim+2)
+	all_dims = np.arrange(equil_dists, min_dim+2)
 	
 	if min_dim == 0:
 	#
