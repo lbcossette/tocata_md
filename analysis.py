@@ -258,8 +258,6 @@ print(hmm_opti.transmat_)
 print("Centroids :")
 print(state_centers)
 
-plot_BICs(all_BICs, all_dims, "{:s}_EVecs_{:d}_{:d}_BICs.pdf".format(trajout, 2*i+1, 2*i+2))
-
 for i in range(0, len(hmm_opti.means_[0]), 2):
 #
 	mean_slice = None
@@ -306,3 +304,5 @@ for i in range(0, len(hmm_opti.means_[0]), 2):
 #
 
 print_centroids(hmm_opti, trajins, structin, timeskip, state_centers, trajout)
+
+plot_BICs(all_BICs, all_dims, "{:s}_EVecs_{:d}_{:d}_BICs.pdf".format(trajout, 2*i+1, 2*i+2))
