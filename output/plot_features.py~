@@ -124,6 +124,33 @@ def get_range(means, sigmas):
 	return x_range, y_range
 #
 
+def get_range_1d(means, sigmas):
+#
+	extrema = [means[0][0]+6.0*sigmas[0][0], means[0][0]-6.0*sigmas[0][0]]
+	
+	for i in range(len(means)):
+	#
+		extrema.append(means[i][0]+6.0*sigmas[i][0])
+		extrema.append(means[i][0]-6.0*sigmas[i][0])
+	#
+	
+	x_range = [extrema[0], extrema[0]]
+	
+	for i in range(len(extrema)):
+	#
+		if extrema[i] > x_range[1]:
+		#
+			x_range[1] = extrema[i]
+		#
+		elif extrema[i] < x_range[0]:
+		#
+			x_range[0] = extrema[i]
+		#
+	#
+	
+	return x_range
+#
+
 
 ########################################################################
 #																	   #
@@ -214,6 +241,15 @@ def plot_density(ic_slice, skip, savepath):
 
 def plot_hmm(ic_slice, means, sigmas, skip, savepath):
 #
+	if len(means[0]) != 2:
+	#
+		print("Defaulting to 1d.")
+		
+		plot_popl_1d(ic_slice, savepath, 1000)
+		
+		return None
+	#
+	
 	print("Generating ellipses...")
 	
 	ells = [Ellipse(xy = [means[i][0], means[i][1]], width=1.96*math.sqrt(sigmas[i][0]), height=1.96*math.sqrt(sigmas[i][1]), angle=0) for i in range(len(means))]
@@ -334,6 +370,15 @@ def plot_estimate(means, sigma, weights, savepath):
 #
 	print("Generating density estimate...")
 	
+	if len(means[0]) == 1:
+	#
+		print("Defaulting to 1d.")
+		
+		plot_estimate_1d(means, sigma, weights, savepath)
+		
+		return None
+	#
+	
 	image = np.empty([1000,1000])
 	
 	x_range, y_range = get_range(means, sigma)
@@ -351,7 +396,7 @@ def plot_estimate(means, sigma, weights, savepath):
 			
 			dist_avg /= 4.0
 			
-			image[i][j] = dist_avg
+			image[-(j+1)][i] = dist_avg
 		#
 	#
 	
@@ -410,7 +455,7 @@ def plot_popl_1d(ic_slice, savepath, dimension):
 	#
 		values[i] /= float(len(all_trajs))
 		
-		pos_values[i] = (float(i) + 0.5)*(x_range[1] - x_range[0])/float(dimension)
+		pos_values[i] = x_range[0] + (float(i) + 0.5)*(x_range[1] - x_range[0])/float(dimension)
 	#
 	
 	plt.plot(pos_values, values)
@@ -451,17 +496,19 @@ def density_1d(x, means, sigma, weights):
 ########################################################################
 
 
-def plot_estimate_1d(means, sigma, weights, x_range, savepath, dimension):
+def plot_estimate_1d(means, sigma, weights, savepath):
 #
 	print("Generating density estimate...")
 	
-	values = np.zeros(dimension)
-	pos_values = np.zeros(dimension)
+	values = np.zeros(1000)
+	pos_values = np.zeros(1000)
 	
-	for i in range(dimension):
+	x_range = get_range_1d(means, sigma)
+	
+	for i in range(1000):
 	#
-		x1 = x_range[0] + i*(x_range[1] - x_range[0])/dimension
-		x2 = x_range[0] + (i+1)*(x_range[1] - x_range[0])/dimension
+		x1 = x_range[0] + i*(x_range[1] - x_range[0])/1000
+		x2 = x_range[0] + (i+1)*(x_range[1] - x_range[0])/1000
 		
 		dist_avg = density_1d(x1, means, sigma, weights) + density_1d(x2, means, sigma, weights)
 		
@@ -469,7 +516,7 @@ def plot_estimate_1d(means, sigma, weights, x_range, savepath, dimension):
 		
 		values[i] = dist_avg
 		
-		pos_values[i] = (float(i) + 0.5)*(x_range[1] - x_range[0])/float(dimension)
+		pos_values[i] = x_range[0] + (float(i) + 0.5)*(x_range[1] - x_range[0])/1000.0
 	#
 	
 	plt.plot(pos_values, values)
@@ -492,7 +539,7 @@ def plot_BICs(all_BICs, all_dims, savepath):
 	
 	for i in range(len(all_BICs)):
 	#
-		n_clusters = np.arrange(1,len(all_BICs[i])+1)
+		n_clusters = np.arange(1,len(all_BICs[i])+1)
 		
 		plt.plot(n_clusters, all_BICs[i], label = "{:d} dimensions".format(all_dims[i]))
 	#

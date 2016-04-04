@@ -264,7 +264,65 @@ def print_tica_projs(ic_projs, savepath):
 ########################################################################
 
 
-#def print_hmm()
+def print_hmm(hmm, savepath):
+#
+	wf = open(savepath, 'w')
+	
+	wf.write("n_states : {:d}\n".format(len(hmm.means_)))
+	wf.write("n_dims : {:d}\n".format(len(hmm.means_[0])))
+	
+	wf.write("Log-likelihood : {:f}\n".format(hmm.fit_logprob_[-1]))
+	
+	wf.write("Means :\n")
+	
+	for i in range(len(hmm.means_)):
+	#
+		wf.write("\tMean {:d}\n".format(i))
+		
+		for j in range(len(hmm.means_[i])):
+		#
+			wf.write("\t\t{:f}\n".format(hmm.means_[i][j]))
+		#
+	#
+	
+	wf.write("Vars :\n")
+	
+	for i in range(len(hmm.vars_)):
+	#
+		wf.write("\tVar {:d}\n".format(i))
+		
+		for j in range(len(hmm.vars_[i])):
+		#
+			wf.write("\t\t{:f}\n".format(hmm.vars_[i][j]))
+		#
+	#
+	
+	wf.write("Populations :\n")
+	
+	for i in range(len(hmm.populations_)):
+	#
+		wf.write("\t{:f}\n".format(hmm.populations_[i]))
+	#
+	
+	wf.write("Transmat :\n")
+	
+	for i in range(len(hmm.transmat_)):
+	#
+		wf.write("\tState {:d}\n".format(i))
+		
+		for j in range(len(hmm.transmat_[i])):
+		#
+			wf.write("\t\t{:f}\n".format(hmm.transmat_[i][j]))
+		#
+	#
+	
+	wf.write("Timescales :\n")
+	
+	for i in range(len(hmm.timescales_)):
+	#
+		wf.write("\t{:f}\n".format(hmm.timescales_[i]))
+	#
+#
 
 
 ########################################################################
@@ -274,7 +332,156 @@ def print_tica_projs(ic_projs, savepath):
 ########################################################################
 
 
-
+def load_hmm(loadpath):
+#
+	rf = open(loadpath, 'r')
+	
+	hmm_dict = dict()
+	
+	attribute = str()
+	pos_i = -1
+	pos_j = -1
+	
+	for line in rf:
+	#
+		print(line)
+		
+		m = re.match("\s\s([-\d\.]+)", line)
+		
+		if m:
+		#
+			pos_j += 1
+					
+			hmm_dict[attribute][pos_i][pos_j] = float(m.group(1))
+			
+			continue
+		#
+		else:
+		#
+			m = re.match("\s([-\d\.]+)", line)
+			
+			if m:
+			#
+				pos_i += 1
+				
+				hmm_dict[attribute][pos_i] = float(m.group(1))
+				
+				continue
+			#
+			else:
+			#
+				m = re.match("\s[\w\s]+", line)
+				
+				if m:
+				#
+					pos_i += 1
+					
+					pos_j = -1
+					
+					continue
+				#
+				else:
+				#
+					pos_i = -1
+					
+					m = re.match("n_states : (\d+)", line)
+					if m:
+					#
+						#print("n_states")
+						
+						hmm_dict['n_states'] = int(m.group(1))
+						
+						continue
+					#
+					
+					m = re.match("n_dims : (\d+)", line)
+					if m:
+					#
+						#print("n_dims")
+						
+						hmm_dict['n_dims'] = int(m.group(1))
+						
+						continue
+					#
+					
+					m = re.match("Log-likelihood : ([-\d\.]+)", line)
+					if m:
+					#
+						#print("logL")
+						
+						hmm_dict['logL'] = float(m.group(1))
+						
+						continue
+					#
+					
+					m = re.match("Means :", line)
+					if m:
+					#
+						#print("means")
+						
+						hmm_dict['means'] = [[0.0 for i in range(hmm_dict['n_dims'])] for j in range(hmm_dict['n_states'])]
+						
+						attribute = 'means'
+						
+						continue
+					#
+					
+					m = re.match("Vars :", line)
+					if m:
+					#
+						#print("vars")
+						
+						hmm_dict['vars'] = [[0.0 for i in range(hmm_dict['n_dims'])] for j in range(hmm_dict['n_states'])]
+						
+						attribute = 'vars'
+						
+						continue
+					#
+					
+					m = re.match("Populations :", line)
+					if m:
+					#
+						#print("popls")
+						
+						hmm_dict['popls'] = [0.0 for i in range(hmm_dict['n_states'])]
+						
+						attribute = 'popls'
+						
+						continue
+					#
+					
+					m = re.match("Timescales :", line)
+					if m:
+					#
+						#print("timescales")
+						
+						hmm_dict['timescales'] = [0.0 for i in range(hmm_dict['n_states'])]
+						
+						attribute = 'popls'
+						
+						continue
+					#
+					
+					m = re.match("Transmat :", line)
+					if m:
+					#
+						#print("transmat")
+						
+						hmm_dict['transmat'] = [[0.0 for i in range(hmm_dict['n_states'])] for j in range(hmm_dict['n_states'])]
+						
+						attribute = 'transmat'
+						
+						continue
+					#
+				#
+			#
+		#
+		
+		raise Exception("Could not read line correctly.")
+	#
+	
+	return hmm_dict
+#
 
 
 ########################################################################
@@ -338,28 +545,39 @@ def print_centroids(hmm, trajins, structin, timeskip, state_centers, trajout):
 					#
 				#
 			#
+			
+			rf.close()
+			wf.close()
 		#
 		else:
 		#
-			task = sub.Popen(["gmx", "trjconv -f {:s} -s {:s} -o {:s}_state_{:d}.pdb -pbc mol -ur compact -b {:f} -e {:f}".format(trajins[state_centers[i][0][0]], structin, trajout, i+1, (float(state_centers[i][0][1]) + 0.5)*timeskip, (float(state_centers[i][0][1]) + 1.5)*timeskip)], stdin = sub.PIPE)
+			print("\n\nGROMACS command for state {:d}".format(i+1))
+			print("gmx trjconv -f {:s} -s {:s} -o {:s}_state_{:d}.pdb -pbc mol -ur compact -b {:f} -e {:f}\n".format(trajins[state_centers[i][0][0]], structin, trajout, i+1, (float(state_centers[i][0][1]) - 0.5)*timeskip, (float(state_centers[i][0][1]) + 0.5)*timeskip))
 			
-			task.communicate("1")
+			#wf.open("{:s}_states.dat".format(trajout), 'a')
 			
-			wf.open("{:s}_states.dat".format(trajout), 'a')
+			#wf.write("\nState {:d}\n\n".format(i+1))
+			print("State {:d}\n".format(i+1))
 			
-			wf.write("\nState {:d}\n\n".format(i+1))
+			#wf.write("State mean : ")
+			#wf.write(", ".join(map(str, hmm.means_[i])))
+			#wf.write("\n")
+			print("State mean : ")
+			print(", ".join(map(str, hmm.means_[i])))
 			
-			wf.write("State mean : ")
-			wf.write(", ".join(map(str, hmm.means_[i])))
-			wf.write("\n")
+			#wf.write("State variance : ")
+			#wf.write(", ".join(map(str, hmm.vars_[i])))
+			#wf.write("\n")
+			print("State variance : ")
+			print(", ".join(map(str, hmm.vars_[i])))
 			
-			wf.write("State variance : ")
-			wf.write(", ".join(map(str, hmm.vars_[i])))
-			wf.write("\n")
+			#wf.write("State population : ")
+			#wf.write(str(hmm.populations_[i]))
+			#wf.write("\n")
+			print("State population : ")
+			print(str(hmm.populations_[i]))
 			
-			wf.write("State population : ")
-			wf.write(str(hmm.populations_[i]))
-			wf.write("\n")
+			#wf.close()
 		#
 	#
 #

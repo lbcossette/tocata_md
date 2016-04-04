@@ -2,11 +2,38 @@ from msmbuilder.hmm import GaussianHMM as GHMM
 import numpy as np
 import math
 from scipy.spatial.distance import mahalanobis as mahadist
+from copy import deepcopy
 
-#def popl_validate(frames1, means1, vars1, popls1):
+
+
+def hellinger(mean1, var1, mean2, var2):
 #
+	det1 = 1.0
+	det2 = 1.0
+	det12 = 1.0
 	
+	for i in range(len(var1)):
+	#
+		det1 *= var1[i]
+		
+		det2 *= var2[i]
+		
+		det12 *= 0.5*(var1[i] + var2[i])
+	#
+	
+	term1 = math.sqrt(det1)*math.sqrt(det2)/det12
+	
+	term2 = 0.0
+	
+	for i in range(len(var1)):
+	#
+		term2 += -0.125*(mean1[i] - mean2[i])**2*2.0/(var1[i] + var2[i])
+	#
+	
+	return math.sqrt(1-math.sqrt(term1)*math.exp(term2))
 #
+
+
 
 def prob_element(frame, means, ivars, popls, cluster):
 #
@@ -22,176 +49,518 @@ def prob_element(frame, means, ivars, popls, cluster):
 	return dividend / divisor
 #
 
-def popl_intersect(frames1, means1, vars1, popls1, frames2, means2, vars2, popls2):
+
+########################################################################
+#																	   #
+#	 		  					Node class							   #
+#																	   #
+########################################################################
+
+
+class Node:
 #
-	all_trajs_1 = frames1[0]
-	all_trajs_2 = frames2[0]
-	
-	intersect = np.zeros([len(means1), len(means2)])
-	
-	for i in range(len(frames1)):
+	def __init__(self, parent, location):
 	#
-		all_trajs_1 = np.append(all_trajs_1, frames1[i], axis=0)
-		all_trajs_2 = np.append(all_trajs_2, frames2[i], axis=0)
+		self.data = [] # .. # The leaves
+		self.next = [] # .. # The child nodes
+		self.parent = parent # .. # Location of the parent node (single inheritance)
+		self.location = location # .. # Location of the node in the tree
 	#
 	
-	ivars1_full = np.empty([len(vars1),len(vars1[0]),len(vars1[0])])
-	ivars2_full = np.empty([len(vars2),len(vars2[0]),len(vars2[0])])
-	
-	for i in range(len(vars1)):
+	def add_next(self, next):
 	#
-		ivars1_full[i] = np.diag(np.divide(np.array([1.0]*len(vars1[i])), vars1[i]))
-	#
-	
-	for i in range(len(vars2)):
-	#
-		ivars2_full[i] = np.diag(np.divide(np.array([1.0]*len(vars2[i])), vars2[i]))
-	#
-	
-	print("Inverse covariance matrices :")
-	print(ivars1_full)
-	print(ivars2_full)
-	
-	probs1 = np.empty([len(all_trajs_1),len(means1)])
-	probs2 = np.empty([len(all_trajs_2),len(means2)])
-	
-	for i in range(len(all_trajs_1)):
-	#
-		for j in range(len(means1)):
+		#print("Adding next node...")
+		
+		location = deepcopy(self.location)
+		
+		location.append(len(self.next))
+		
+		#print("Parent location :")
+		#print(self.location)
+		#print("Node location :")
+		#print(location)
+		
+		if next is None:
 		#
-			#print("Frame {:d}, cluster{:d}, level 1 :".format(i,j))
+			new_node = Node(self.location, location)  # .. # Creates a new node to append
 			
-			probs1[i][j] = prob_element(all_trajs_1[i], means1, ivars1_full, popls1, j)
+			self.next.append(new_node)
+		#
+		else:
+		#
+			next.parent = self.location
+			next.location = location
 			
-			#print(probs1[i][j])
+			self.next.append(next) # .. # Appends an existing node
+		#
+	#
+	
+	def add_data(self, data): # .. # Appends a single to data to existing data
+	#
+		self.data.append(data)
+	#
+	
+	def extend_data(self, data): # .. # Appends a list of data to existing data
+	#
+		self.data.extend(data)
+	#
+	
+	def print_node(self):
+	#
+		level = ""
+		
+		for i in range(len(self.location)):
+		#
+			level += "\t|"
 		#
 		
-		for j in range(len(means2)):
+		print(level)
+		
+		if not (self.parent is None):
 		#
-			#print("Frame {:d}, cluster{:d}, level 2 :".format(i,j))
-			
-			probs2[i][j] = prob_element(all_trajs_2[i], means2, ivars2_full, popls2, j)
-			
-			#print(probs2[i][j])
+			print("{:s}--> parent : {:s}".format(level, ", ".join(map(str, self.parent))))
+		#
+		else:
+		#
+			print("{:s}--> Head".format(level))
+		#
+		print("{:s}--> location : {:s}".format(level, ", ".join(map(str, self.location))))
+		
+		print("{:s}--> data : {:s}".format(level, ", ".join(map(str, self.data))))
+		
+		for i in range(len(self.next)):
+		#
+			self.next[i].print_node()
 		#
 	#
 	
-	del all_trajs_1
-	del all_trajs_2
-	del ivars1_full
-	del ivars2_full
-	
-	total_pop = 0.0
-	
-	for i in range(len(intersect)):
+	def move(self):
 	#
-		for j in range(len(intersect[0])):
+		location = deepcopy(self.location)
+		
+		location.append(0)
+		
+		for i in range(len(self.next)):
 		#
-			for k in range(len(probs1)):
+			location[-1] = i
+			
+			self.next[i].location = location
+			
+			self.next[i].parent = self.location
+			
+			self.next[i].move()
+		#
+	#
+	
+	def search_data(self, data, found):
+	#
+		for i in self.data:
+		#
+			if i == data:
 			#
-				intersect[i][j] += probs1[k][i] * probs2[k][j]
+				found.append(self.location)
 			#
-			
-			intersect[i][j] /= len(probs1)
-			
-			total_pop += intersect[i][j]
+		#
+		
+		for node in self.next:
+		#
+			node.search_data(data, found)
 		#
 	#
 	
-	print("Total population : {:f}".format(total_pop))
-	
-	return intersect
+	def remove(self): # .. # Destructor of node class
+	#
+		while self.next: # .. # Resursive deletion of all child nodes
+		#
+			self.next[-1].remove()
+			
+			del self.next[-1]
+		#
+		
+		self.data = []
+		self.parent = []
+		self.location = []
+		
+		del self.next
+		del self.data
+		del self.parent
+		del self.location
+	#
 #
 
 
-def combine_hmm_1d(ic_splits, all_hmms):
+########################################################################
+#																	   #
+#	 		  					Tree class							   #
+#																	   #
+########################################################################
+
+
+class Tree:
 #
-	print("Rebuilding higher-dimensional HMMs...")
-	
-	rebuild_max = len(all_hmms)
-	
-	if rebuild_max % 2 == 1:
+	def __init__(self):
 	#
-		rebuild_max -= 1
+		self.head = Node(None, [])
 	#
 	
-	means_rebuilt = [None]*int(rebuild_max/2)
-	vars_rebuilt = [None]*int(rebuild_max/2)
-	popls_rebuilt = [None]*int(rebuild_max/2)
-	
-	for i in range(len(means_rebuilt)):
+	def get_node(self, location):
 	#
-		print("Constructing intersection containers {:d}...".format(i+1))
-		
-		means_rebuilt[i] = [[None]*(2*len(all_hmms[2*i].means_[0]))]*(len(all_hmms[2*i].means_)*len(all_hmms[2*i+1].means_))
-		vars_rebuilt[i] = [[None]*(2*len(all_hmms[2*i].means_[0]))]*(len(all_hmms[2*i].means_)*len(all_hmms[2*i+1].means_))
-		popls_rebuilt[i] = [None]*(len(all_hmms[2*i].means_)*len(all_hmms[2*i+1].means_))
-		
-		print(len(all_hmms[2*i].means_)*len(all_hmms[2*i+1].means_))
-		print(len(means_rebuilt[i]))
-		print(len(vars_rebuilt[i]))
-		print(len(popls_rebuilt[i]))
-		
-		print("Calculating joint populations...")
-		
-		popls_temp = popl_intersect(ic_splits[2*i], all_hmms[2*i].means_, all_hmms[2*i].vars_, all_hmms[2*i].populations_, ic_splits[2*i+1], all_hmms[2*i+1].means_, all_hmms[2*i+1].vars_, all_hmms[2*i+1].populations_)
-		
-		print(popls_temp)
-		
-		print("Assembly...")
-		
-		for j in range(len(all_hmms[2*i].means_)):
+		if not location:
 		#
-			for k in range(len(all_hmms[2*i+1].means_)):
+			return self.head
+		#
+		else:
+		#
+			current = self.head.next[location[0]]
+			
+			for i in range(1,len(location)):
 			#
-				temp_means = all_hmms[2*i].means_[j]
-				temp_means = np.append(temp_means, all_hmms[2*i+1].means_[k])
-				
-				print(j*len(all_hmms[2*i+1].means_)+k)
-				
-				print(temp_means)
-				
-				means_rebuilt[i][j*len(all_hmms[2*i+1].means_)+k] = temp_means
-				
-				del temp_means
-				
-				temp_vars = all_hmms[2*i].vars_[j]
-				temp_vars = np.append(temp_vars, all_hmms[2*i+1].vars_[k])
-				
-				print(temp_vars)
-				
-				vars_rebuilt[i][j*len(all_hmms[2*i+1].means_)+k] = temp_vars
-				
-				del temp_vars
-				
-				popls_rebuilt[i][j*len(all_hmms[2*i+1].means_)+k] = popls_temp[j][k]
-				
-				print(popls_temp[j][k])
+				current = current.next[location[i]]
 			#
+			
+			return current
 		#
 	#
 	
-	for i in range(len(means_rebuilt)):
+	def deepen(self, location, levels):
 	#
-		print("Reconstitution {:d} :".format(i))
+		current = self.get_node(location)
 		
-		for j in range(len(all_hmms[2*i].means_)):
+		for i in range(levels):
 		#
-			for k in range(len(all_hmms[2*i+1].means_)):
-			#
-				print("Intersection of {:d} and {:d} :".format(j,k))
-				
-				print("Means:")
-				print(means_rebuilt[i][j*len(all_hmms[2*i].means_)+k])
-				
-				print("Vars:")
-				print(vars_rebuilt[i][j*len(all_hmms[2*i].means_)+k])
-				
-				print("Populations:")
-				print(popls_rebuilt[i][j*len(all_hmms[2*i].means_)+k])
-			#
+			current.add_next(None)
+			
+			current = current.next[-1]
 		#
 	#
 	
-	return means_rebuilt, vars_rebuilt, popls_rebuilt
+	def broaden(self, location, n_new):
+	#
+		current = self.get_node(location)
+		
+		for i in range(n_new):
+		#
+			current.add_next(None)
+		#
+	#
+	
+	def add_data(self, location, data):
+	#
+		current = self.get_node(location)
+		
+		current.add_data(data)
+	#
+	
+	def move_node(self, location1, location2):
+	#
+		cargo = self.get_node(location1)
+		
+		dest = self.get_node(location2)
+		
+		parent = self.get_node(cargo.parent)
+		
+		dest.add_next(cargo)
+		
+		cargo.move()
+		
+		del parent.next[location1[len(location1) - 1]]
+		
+		parent.move()
+	#
+	
+	def move_data(self, location1, pos, location2):
+	#
+		giver = self.get_node(location1)
+		
+		taker = self.get_node(location2)
+		
+		data = giver.data[pos]
+		
+		del giver.data[pos]
+		
+		taker.add_data(data)
+	#
+	
+	def move_all_data(self, location1, location2):
+	#
+		giver = self.get_node(location1)
+		
+		taker = self.get_node(location2)
+		
+		data = deepcopy(giver.data)
+		
+		taker.extend_data(data)
+		
+		del data
+		
+		giver.data = []
+	#
+	
+	def delete_node(self, location):
+	#
+		current = self.get_node(location)
+		
+		parent = self.get_node(current.parent)
+		
+		pos = deepcopy(current.location[-1])
+		
+		current.remove()
+		
+		del parent.next[pos]
+		
+		for i in range(pos, len(parent.next)):
+		#
+			parent.next[i].location[-1] -= 1
+			
+			parent.next[i].move()
+		#
+	#
+	
+	def delete_data(self, location, pos):
+	#
+		current = self.get_node(location)
+		
+		del current.data[pos]
+	#
+	
+	def wipe_data(self, location):
+	#
+		current = self.get_node(location)
+		
+		current.data = []
+	#
+	
+	def print_tree(self):
+	#
+		self.head.print_node()
+	#
+	
+	def search_data(self, data):
+	#
+		if not (isinstance(data, int), isinstance(data, float), isinstance(data, str)):
+		#
+			raise Exception("Cannot search for given type of data")
+		#
+		else:
+		#
+			found = []
+			
+			self.head.search_data(data, found)
+			
+			return found
+		#
+	#
+#
+
+
+########################################################################
+#																	   #
+#	 		  				Inheritance class						   #
+#																	   #
+########################################################################
+
+
+class inheritance:
+#
+	def __init__(self, means, sigmas, popls, transmat):
+	#
+		self.means = means
+		self.sigmas = sigmas
+		self.pops = popls
+		self.trans = transmat
+		self.superstates = Tree()
+		self.node = dict()
+		self.lumps = []
+		
+		self.superstates.deepen(None, len(means[0]) - 1)
+		
+		loc = [0 for i in range(len(means[0]) - 1)]
+		
+		self.superstates.broaden(loc, len(means))
+		
+		loc.append(-1)
+				
+		for i in range(len(means)):
+		#
+			loc[-1] = i
+			
+			self.superstates.add_data(loc, i)
+			
+			self.node[i] = self.superstates.get_node(loc)
+		#
+		
+		self.superstates.print_tree()
+	#
+	
+	def same_lump(self, state1, state2):
+	#
+		if len(self.node[state1].location) == len(self.node[state2].location):
+		#
+			for i in range(len(self.node[state1].location)):
+			#
+				if self.node[state1].location[i] != self.node[state2].location[i]:
+				#
+					return False
+				#
+			#
+		#
+		else:
+		#
+			return False
+		#
+		
+		return True
+	#
+	
+	def lump(self):
+	#
+		for i in range(len(self.means)-1):
+		#
+			for j in range(i+1, len(self.means)):
+			#
+				if not self.same_lump(i,j):
+				#
+					prob = hellinger(self.means[i], self.sigmas[i], self.means[j], self.sigmas[j])
+					
+					#print("Hellinger distance between state {:d} and state {:d} : {:f}".format(i, j, prob))
+					
+					if prob < 0.95:
+					#
+						#print("Lumping states {:d} and {:d}...".format(i,j))
+						
+						self.superstates.move_all_data(self.node[j].location, self.node[i].location)
+						
+						to_del = deepcopy(self.node[j].location)
+						
+						print(self.node[j].location)
+						
+						for k in self.node[i].data:
+						#
+							self.node[k] = self.node[i]
+						#
+						
+						print(self.node[j].location)
+						
+						self.superstates.delete_node(to_del)
+						
+						del to_del
+					#
+				#
+			#
+		#
+		
+		print("Lumping over :\n")
+		
+		self.superstates.print_tree()
+		
+		print("\n")
+	#
+	
+	def match_lumps(self, node1, node2, means, sigmas):
+	#
+		match = False
+		
+		for i in node1.data:
+		#
+			for j in node2.data:
+			#
+				prob = hellinger(means[i], sigmas[i], means[j], sigmas[j])
+				
+				if prob < 0.95:
+				#
+					match = True
+				#
+			#
+		#
+		
+		if not match:
+		#
+			for node_1 in node1.next:
+			#
+				for node_2 in node2.next:
+				#
+					match = self.match_lumps(node_1, node_2, means, sigmas)
+				#
+			#
+		#
+				
+		if not match:
+		#
+			for node in node2.next:
+			#
+				match = self.match_lumps(node1, node, means, sigmas)
+			#
+		#
+		
+		if not match:
+		#
+			for node in node1.next:
+			#
+				match = self.match_lumps(node, node2, means, sigmas)
+			#
+		#
+		
+		return match
+	#
+	
+	def retrolump(self):
+	#
+		means = self.means
+		sigmas = self.sigmas
+		
+		parent_loc = self.node[0].location
+		
+		while len(means[0]) > 1:
+		#
+			for mean in means:
+			#
+				del mean[-1]
+			#
+			
+			for sigma in sigmas:
+			#
+				del sigma[-1]
+			#
+			
+			del parent_loc[-1]
+			
+			parent_node = self.superstates.get_node(parent_loc)
+			
+			grandparent_node = self.superstates.get_node(parent_node.parent)
+			
+			while parent_node.next:
+			#
+				self.superstates.broaden(grandparent_node.location, 1)
+				
+				new_parent = grandparent_node.next[-1]
+				
+				self.superstates.move_node(parent_node.next[0].location, new_parent.location)
+				
+				i = -1
+				
+				while i < len(new_parent.next) - 1:
+				#
+					i += 1
+					
+					for node in parent_node.next:
+					#
+						if self.match_lumps(new_parent.next[i], node, means, sigmas):
+						#
+							self.superstates.move_node(node.location, new_parent.location)
+						#
+					#
+				#
+			#
+			
+			self.superstates.delete_node(parent_loc)
+			
+			print("\n\nRetrolumping done on this layer :\n")
+			
+			self.superstates.print_tree()
+			
+			print("\n")
+		#
+		
+		self.superstates.print_tree()
+	#
 #
