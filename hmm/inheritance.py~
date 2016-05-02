@@ -144,7 +144,7 @@ class Node:
 		#
 			location[-1] = i
 			
-			self.next[i].location = location
+			self.next[i].location = deepcopy(location)
 			
 			self.next[i].parent = self.location
 			
@@ -308,9 +308,17 @@ class Tree:
 		
 		del parent.next[pos]
 		
-		for i in range(pos, len(parent.next)):
+		del pos
+		
+		loc = deepcopy(parent.location)
+		
+		loc.append(0)
+		
+		for i in range(len(parent.next)):
 		#
-			parent.next[i].location[-1] -= 1
+			loc[-1] = i
+			
+			parent.next[i].location = deepcopy(loc)
 			
 			parent.next[i].move()
 		#
@@ -389,7 +397,7 @@ class inheritance:
 			self.node[i] = self.superstates.get_node(loc)
 		#
 		
-		self.superstates.print_tree()
+		#self.superstates.print_tree()
 	#
 	
 	def same_lump(self, state1, state2):
@@ -432,14 +440,10 @@ class inheritance:
 						
 						to_del = deepcopy(self.node[j].location)
 						
-						print(self.node[j].location)
-						
 						for k in self.node[i].data:
 						#
 							self.node[k] = self.node[i]
 						#
-						
-						print(self.node[j].location)
 						
 						self.superstates.delete_node(to_del)
 						
@@ -508,7 +512,7 @@ class inheritance:
 		means = self.means
 		sigmas = self.sigmas
 		
-		parent_loc = self.node[0].location
+		parent_loc = deepcopy(self.node[0].location)
 		
 		while len(means[0]) > 1:
 		#
@@ -542,23 +546,23 @@ class inheritance:
 				#
 					i += 1
 					
-					for node in parent_node.next:
+					j = -1
+					
+					while j < len(parent_node.next) - 1:
 					#
-						if self.match_lumps(new_parent.next[i], node, means, sigmas):
+						j += 1
+						
+						while self.match_lumps(new_parent.next[i], parent_node.next[j], means, sigmas):
 						#
-							self.superstates.move_node(node.location, new_parent.location)
+							self.superstates.move_node(parent_node.next[j].location, new_parent.location)
+							
+							if j >= len(parent_node.next)
 						#
 					#
 				#
 			#
 			
 			self.superstates.delete_node(parent_loc)
-			
-			print("\n\nRetrolumping done on this layer :\n")
-			
-			self.superstates.print_tree()
-			
-			print("\n")
 		#
 		
 		self.superstates.print_tree()

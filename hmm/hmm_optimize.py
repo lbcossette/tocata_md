@@ -625,6 +625,10 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs, resume):
 	
 	n_dims = equil_dists - 1
 	
+	pos = 0
+	dim_strike = 1
+	dim_end = 0
+	
 	while n_dims <= n_comp:
 	#
 		n_dims += 1
@@ -668,6 +672,8 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs, resume):
 			print("Running fit...")
 			
 			hmm.fit(ic_slice)
+			
+			print(hmm.fit_logprob_)
 			
 			if n_obs > 10000:
 			#
@@ -755,6 +761,8 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs, resume):
 			print("\n")
 		#
 		
+		print("Pos :\n{:d}".format(pos))
+		
 		if all_hmms[0] is None:
 		#
 			all_hmms[0] = deepcopy(best_hmm)
@@ -770,34 +778,46 @@ def make_hmm_fullauto(ic_projs, equil_dists, n_comp, n_obs, resume):
 			all_BIC_mins.append(BIC_min)
 			
 			print("Current slowest timescale :")
-			print(all_hmms[len(all_hmms)-1].timescales_[0])
-			print("Previous slowest timescale :")
-			print(all_hmms[len(all_hmms)-2].timescales_[0])
+			print(all_hmms[-1].timescales_[0])
+			print("Current optimal slowest timescale :")
+			print(all_hmms[pos].timescales_[0])
 			
-			if all_hmms[len(all_hmms)-1].timescales_[0] < all_hmms[len(all_hmms)-2].timescales_[0]:
+			if all_hmms[-1].timescales_[0] < all_hmms[pos].timescales_[0]:
 			#
-				print("Best HMM found with {:d} dimensions.".format(n_dims-1))
+				print("Strike on dimension.")
 				
-				min_dim = n_dims-1
-				
-				pos = len(all_hmms) - 2
-				
-				break
+				dim_strike += 1
 			#
-			elif all_hmms[len(all_hmms)-1].timescales_[0] > all_hmms[len(all_hmms)-2].timescales_[0] and n_dims == n_comp:
+			elif all_hmms[-1].timescales_[0] > all_hmms[pos].timescales_[0]:
 			#
-				print("Best HMM found with {:d} dimensions.".format(n_dims))
+				print("New optimum found at {:d} dimensions".format(n_dims))
+				
+				dim_strike = 1
 				
 				min_dim = n_dims
 				
 				pos = len(all_hmms) - 1
+			#
+			
+			if n_dims == n_comp:
+			#
+				print("End of loop. Optimal model selected")
+				
+				break
+			#
+			
+			if dim_strike > 3:
+			#
+				print("Maximal strike reached.")
+				
+				dim_end = n_dims + 1
 				
 				break
 			#
 		#
 	#
 	
-	all_dims = np.arange(equil_dists, min_dim+2)
+	all_dims = np.arange(equil_dists, dim_end)
 	
 	if min_dim == 0:
 	#

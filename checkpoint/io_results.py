@@ -1,12 +1,146 @@
 import re
 import os
-import sys
 import math
 import numpy as np
 import mdtraj as md
 from msmbuilder.hmm import GaussianHMM as GHMM
 from msmbuilder.decomposition import tICA
 import subprocess as sub
+from copy import deepcopy
+
+
+########################################################################
+#																	   #
+#	 		   			   Print trajectories						   #
+#																	   #
+########################################################################
+
+
+def print_trajs(trajectories, savepath):
+#
+	print("Printing trajectories...")
+	
+	wf = open(savepath, 'w')
+	
+	for i in range(len(trajectories)):
+	#
+		wf.write("Trajectory {:d} {:d}\n".format(len(trajectories[i]), len(trajectories[i][0])))
+		
+		for j in range(len(trajectories[i])):
+		#
+			wf.write("\tFrame\n".format(j))
+			
+			for k in range(len(trajectories[i][j])):
+			#
+				wf.write("\t\t{:f}\n".format(trajectories[i][j][k]))
+			#
+		#
+	#
+#
+
+
+########################################################################
+#																	   #
+#	 		   			    Load trajectories						   #
+#																	   #
+########################################################################
+
+
+def load_trajs(loadpath):
+#
+	trajectories = list()
+	
+	rf = open(loadpath, 'r')
+	
+	i = -1
+	j = -1
+	k = -1
+	
+	for line in rf:
+	#
+		m = re.match("\s\s([\-\d\.]+)", line)
+		
+		if m:
+		#
+			k += 1
+					
+			trajectories[i][j][k] = float(m.group(1))
+			
+			continue
+		#
+		else:
+		#
+			m = re.match("\sFrame", line)
+			
+			if m:
+			#
+				j += 1
+				
+				k = -1
+				
+				continue
+			#
+			else:
+			#
+				m = re.match("Trajectory\s(\d+)\s(\d+)", line)
+				
+				if m:
+				#
+					trajectories.append([[0.0 for j in range(int(m.group(2)))] for i in range(int(m.group(1)))])
+					
+					j = -1
+					
+					i += 1
+					
+					continue
+				#
+			#
+		#
+		
+		raise Exception("Could not read line correctly.")
+	#
+	
+	return trajectories
+#
+
+
+########################################################################
+#																	   #
+#	 		   			   Print studied features					   #
+#																	   #
+########################################################################
+
+
+def print_feat(trajectory_atoms, savepath):
+#
+	print("Printing features...")
+	
+	wf = open(savepath, 'w')
+	
+	wf.write("\t".join(trajectory_atoms))
+#
+
+
+########################################################################
+#																	   #
+#	 		   			   Load studied features					   #
+#																	   #
+########################################################################
+
+
+def load_feat(loadpath):
+#
+	rf = open(loadpath, 'r')
+	
+	features = None
+	
+	for line in rf:
+	#
+		features = re.split('\s+', line)
+	#
+	
+	return features
+#
 
 
 ########################################################################
@@ -46,15 +180,23 @@ def print_tica(tica_tot, equil, equil_dists, n_comp, usable_comps, frameskip, sa
 	#
 	
 	wf.write("\teigenvectors\n")
-	for i in range(len(tica_tot.eigenvectors_)):
+	
+	temp = deepcopy(tica_tot.eigenvectors_)
+	
+	evecs = np.asarray(temp).T.tolist() # .. # Writing eigenvectors as lines is more convenient in terms of data structure.
+	
+	for i in range(len(evecs)):
 	#
 		wf.write("\t\tevec {:d}\n".format(i))
 		
-		for j in range(len(tica_tot.eigenvectors_[i])):
+		for j in range(len(evecs[i])):
 		#
-			wf.write("\t\t\t{:f}\n".format(tica_tot.eigenvectors_[i][j]))
+			wf.write("\t\t\t{:f}\n".format(evecs[i][j]))
 		#
 	#
+	
+	del temp
+	del evecs
 	
 	wf.write("\tmeans\n")
 	for i in range(len(tica_tot.means_)):
@@ -91,10 +233,7 @@ def load_tica(loadpath):
 #
 	rf = open(loadpath, 'r')
 	
-	side_dict = {'equil' : None, 'equil_dists' : 0, 'n_comp' : 0, 'usable_comps' : 0, 'frameskip' : 0, 'n_features' : 0}
-	
-	tica_tot = None
-	tica_dict = None
+	tica_dict = dict()
 	
 	equil_values = {'True' : True, 'False' : False}
 	
@@ -104,23 +243,27 @@ def load_tica(loadpath):
 	
 	for line in rf:
 	#
-		m = re.match("\s\s\s([\d\.]+)", line)
+		m = re.match("\s\s\s([\-\d\.]+)", line)
 		
 		if m:
 		#
 			pos_j += 1
 					
 			tica_dict[attribute][pos_i][pos_j] = float(m.group(1))
+			
+			continue
 		#
 		else:
 		#
-			m = re.match("\s\s([\d\.]+)", line)
+			m = re.match("\s\s([\-\d\.]+)", line)
 			
 			if m:
 			#
 				pos_i += 1
 				
 				tica_dict[attribute][pos_i] = float(m.group(1))
+				
+				continue
 			#
 			else:
 			#
@@ -131,6 +274,8 @@ def load_tica(loadpath):
 					pos_i += 1
 					
 					pos_j = -1
+					
+					continue
 				#
 				else:
 				#
@@ -149,9 +294,10 @@ def load_tica(loadpath):
 		#
 		
 		m = re.match("equil : (\w+)", line)
+		
 		if m:
 		#
-			side_dict['equil'] = equil_values[m.group(1)]
+			tica_dict['equil'] = equil_values[m.group(1)]
 			
 			continue
 		#
@@ -159,7 +305,7 @@ def load_tica(loadpath):
 		m = re.match("equil_dists : (\d+)", line)
 		if m:
 		#
-			side_dict['equil_dists'] = int(m.group(1))
+			tica_dict['equil_dists'] = int(m.group(1))
 			
 			continue
 		#
@@ -167,7 +313,7 @@ def load_tica(loadpath):
 		m = re.match("usable_comps : (\d+)", line)
 		if m:
 		#
-			side_dict['usable_comps'] = int(m.group(1))
+			tica_dict['usable_comps'] = int(m.group(1))
 			
 			continue
 		#
@@ -175,7 +321,7 @@ def load_tica(loadpath):
 		m = re.match("n_comp : (\d+)", line)
 		if m:
 		#
-			side_dict['n_comp'] = int(m.group(1))
+			tica_dict['n_comp'] = int(m.group(1))
 			
 			continue
 		#
@@ -183,7 +329,7 @@ def load_tica(loadpath):
 		m = re.match("frameskip : (\d+)", line)
 		if m:
 		#
-			frameskip = int(m.group(1))
+			tica_dict['frameskip'] = int(m.group(1))
 			
 			continue
 		#
@@ -191,7 +337,7 @@ def load_tica(loadpath):
 		m = re.match("n_features : (\d+)", line)
 		if m:
 		#
-			n_features = int(m.group(1))
+			tica_dict['n_feat'] = int(m.group(1))
 			
 			continue
 		#
@@ -199,22 +345,26 @@ def load_tica(loadpath):
 		m = re.match("tICA", line)
 		if m:
 		#
-			if side_dict['equil'] is None or side_dict['equil_dists'] == 0 or side_dict['usable_comps'] == 0 or side_dict['n_comp'] == 0 or side_dict['frameskip'] == 0 or side_dict['n_feat'] == 0:
-			#
-				raise Exception("tICA has not been printed/read correctly")
-			#
-			else:
-			#
-				tica_dict = {'eigenvalues' : [0.0 for i in range(side_dict['n_feat'])], 'eigenvectors' : [[0.0 for i in range(side_dict['n_feat'])] for i in range(side_dict['n_feat'])], 'means' : [0.0 for i in range(side_dict['n_feat'])], 'timescales' : [0.0 for i in range(side_dict['n_feat'])], 'n_observations' : [0.0], 'n_sequences' : [0.0]}
+			tica_dict['eigenvalues'] = [0.0 for i in range(tica_dict['n_feat'])]
+			tica_dict['eigenvectors'] = [[0.0 for i in range(tica_dict['n_feat'])] for i in range(tica_dict['n_feat'])] # .. # REMEMBER : This is the transpose; its eigenvectors are lines.
+			tica_dict['means'] = [0.0 for i in range(tica_dict['n_feat'])]
+			tica_dict['timescales'] = [0.0 for i in range(tica_dict['n_feat'])]
+			tica_dict['n_observations'] = [0.0]
+			tica_dict['n_sequences'] = [0.0]
 				
-				continue
-			#
+			continue
+		#
+		
+		m = re.match("$", line)
+		if m:
+		#
+			continue
 		#
 		
 		raise Exception("Could not read line correctly.")
 	#
 	
-	return side_dict, tica_dict
+	return tica_dict
 #
 
 
@@ -225,7 +375,7 @@ def load_tica(loadpath):
 ########################################################################
 
 
-def print_tica_projs(ic_projs, savepath):
+def print_tica_projs(ic_projs, n_comp, savepath):
 #
 	print("Printing projections on tICA components...")
 	
@@ -241,7 +391,7 @@ def print_tica_projs(ic_projs, savepath):
 		#
 			wf.write("\tFrame {:d}\n".format(j+1))
 			
-			for k in range(len(ic_projs[i][j])):
+			for k in range(n_comp):
 			#
 				wf.write("\t\t{:f}\n".format(ic_projs[i][j][k]))
 			#
@@ -254,6 +404,44 @@ def print_tica_projs(ic_projs, savepath):
 	
 	
 	#return ic_splits
+#
+
+
+########################################################################
+#																	   #
+#	 		   		 Print the results of a tICA scan				   #
+#																	   #
+########################################################################
+
+
+def print_scan(compares, centers, out_root):
+#
+	for i in range(len(compares)):
+	#
+		with open("{:s}_scan_EVec_{:d}.txt".format(out_root, i+1), 'w') as wf:
+		#
+			wf.write("X:Centers\n")
+			
+			for center in centers:
+			#
+				wf.write("{:d}\n".format(center))
+			#
+			
+			wf.write("Cos_angles\n")
+			
+			for cos in compares[i][0]:
+			#
+				wf.write("{:f}\n".format(math.fabs(cos)))
+			#
+			
+			wf.write("R_t\n")
+			
+			for rt in compares[i][1]:
+			#
+				wf.write("{:f}\n".format(rt))
+			#
+		#
+	#
 #
 
 
@@ -495,89 +683,91 @@ def print_centroids(hmm, trajins, structin, timeskip, state_centers, trajout):
 #
 	print("Printing centroids...")
 	
-	if os.path.isfile("{:s}_states.dat".format(trajout)):
+	with open("{:s}_states.dat".format(trajout), 'w') as wf:
 	#
-		sub.run(["rm","{:s}_states.dat".format(trajout)])
-	#
-	
-	for i in range(len(state_centers)):
-	#
-		if structin is None:
+		for i in range(len(state_centers)):
 		#
-			rf = open(trajins[state_centers[i][0][0]], 'r')
-			
-			wf = open("{:s}_state_{:d}.pdb".format(trajout, i+1), 'w')
-			
-			trigger = False
-			
-			for line in rf:
+			if structin is None:
 			#
-				if trigger:
+				with open(trajins[state_centers[i][0][0]], 'r') as rf:
 				#
-					wf.write(line)
-					
-					if re.match("ENDMDL", line):
+					with open("{:s}_state_{:d}.pdb".format(trajout, i+1), 'w') as sf:
 					#
 						trigger = False
-					#
-				#
-				else:
-				#
-					m = re.match("MODEL\s+(\d+)", line)
+			
+						for line in rf:
+						#
+							if trigger:
+							#
+								sf.write(line)
 					
-					if m and int(m.group(1)) == state_centers[i][0][1] + 1:
-					#
-						wf.write(line)
+								if re.match("ENDMDL", line):
+								#
+									trigger = False
+								#
+							#
+							else:
+							#
+								m = re.match("MODEL\s+(\d+)", line)
+					
+								if m and int(m.group(1)) == state_centers[i][0][1] + 1:
+								#
+									sf.write(line)
+									
+									wf.write("\n\nState {:d}\n".format(i+1))
+									
+									wf.write("State mean : \n")
+									wf.write(", ".join(map(str, hmm.means_[i])))
+									wf.write("\n")
 						
-						wf.write("REMARK   6 State mean : ")
-						wf.write(", ".join(map(str, hmm.means_[i])))
-						wf.write("\n")
+									wf.write("State variance : \n")
+									wf.write(", ".join(map(str, hmm.vars_[i])))
+									wf.write("\n")
 						
-						wf.write("REMARK   6 State variance : ")
-						wf.write(", ".join(map(str, hmm.vars_[i])))
-						wf.write("\n")
+									wf.write("State population : \n")
+									wf.write(str(hmm.populations_[i]))
+									wf.write("\n")
 						
-						wf.write("REMARK   6 State population : ")
-						wf.write(str(hmm.populations_[i]))
-						wf.write("\n")
-						
-						trigger = True
+									trigger = True
+								#
+							#
+						#
 					#
 				#
 			#
+			else:
+			#
+				wf.write("\n\nGROMACS command for state {:d}\n".format(i+1))
+				wf.write("gmx trjconv -f {:s} -s {:s} -o {:s}_state_{:d}.pdb -pbc mol -ur compact -b {:f} -e {:f}\n\n".format(trajins[state_centers[i][0][0]], structin, trajout, i+1, (float(state_centers[i][0][1]) - 0.5)*timeskip, (float(state_centers[i][0][1]) + 0.5)*timeskip))
 			
-			rf.close()
-			wf.close()
-		#
-		else:
-		#
-			print("\n\nGROMACS command for state {:d}".format(i+1))
-			print("gmx trjconv -f {:s} -s {:s} -o {:s}_state_{:d}.pdb -pbc mol -ur compact -b {:f} -e {:f}\n".format(trajins[state_centers[i][0][0]], structin, trajout, i+1, (float(state_centers[i][0][1]) - 0.5)*timeskip, (float(state_centers[i][0][1]) + 0.5)*timeskip))
+				#wf.open("{:s}_states.dat".format(trajout), 'a')
 			
-			#wf.open("{:s}_states.dat".format(trajout), 'a')
+				#wf.write("\nState {:d}\n\n".format(i+1))
+				wf.write("State {:d}\n".format(i+1))
 			
-			#wf.write("\nState {:d}\n\n".format(i+1))
-			print("State {:d}\n".format(i+1))
+				#wf.write("State mean : ")
+				#wf.write(", ".join(map(str, hmm.means_[i])))
+				#wf.write("\n")
+				wf.write("State mean : \n")
+				wf.write(", ".join(map(str, hmm.means_[i])))
+				wf.write("\n")
 			
-			#wf.write("State mean : ")
-			#wf.write(", ".join(map(str, hmm.means_[i])))
-			#wf.write("\n")
-			print("State mean : ")
-			print(", ".join(map(str, hmm.means_[i])))
+				#wf.write("State variance : ")
+				#wf.write(", ".join(map(str, hmm.vars_[i])))
+				#wf.write("\n")
+				wf.write("State variance : \n")
+				wf.write(", ".join(map(str, hmm.vars_[i])))
+				wf.write("\n")
 			
-			#wf.write("State variance : ")
-			#wf.write(", ".join(map(str, hmm.vars_[i])))
-			#wf.write("\n")
-			print("State variance : ")
-			print(", ".join(map(str, hmm.vars_[i])))
+				#wf.write("State population : ")
+				#wf.write(str(hmm.populations_[i]))
+				#wf.write("\n")
+				wf.write("State population : \n")
+				wf.write(str(hmm.populations_[i]))
+				wf.write("\n")
 			
-			#wf.write("State population : ")
-			#wf.write(str(hmm.populations_[i]))
-			#wf.write("\n")
-			print("State population : ")
-			print(str(hmm.populations_[i]))
-			
-			#wf.close()
+				#wf.close()
+			#
 		#
 	#
 #

@@ -49,6 +49,8 @@ def in_equil(traj_tica, max_i):
 		#
 	#
 	
+	print("There are {:d} slow components.".format(max_index))
+	
 	if max_index > 1:
 	#
 		return (False, max_index)
@@ -106,18 +108,19 @@ def make_tica_opt(trajectories_t, timeskip_t):
 #
 	frameskip = 0
 	
-	if int(math.ceil(200000.0/float(timeskip_t))) > len(trajectories_t[0])/2:
+	shortest_length = len(trajectories_t[0])
+	
+	for i in range(len(trajectories_t)):
 	#
-		frameskip = int(len(trajectories_t[0])/2)
+		if shortest_length > len(trajectories_t[i]):
+		#
+			shortest_length = len(trajectories_t[i])
+		#
+	#
+	
+	frameskip = int(shortest_length/2)
 		
-		print("Frameskip {:f} ns ({:d} frames) :".format(float(len(trajectories_t[0])/2)*float(timeskip_t)/1000.0, frameskip))
-	#
-	else:
-	#
-		frameskip = int(math.ceil(200000.0/float(timeskip_t)))
-		
-		print("Frameskip {:d} ns ({:d} frames) :".format(200, frameskip))
-	#
+	print("Frameskip {:f} ns ({:d} frames) :".format(float(frameskip)*timeskip_t/1000.0, frameskip))
 	
 	tica_tot_t = tICA(n_components = len(trajectories_t[0][0]), lag_time = frameskip)
 	

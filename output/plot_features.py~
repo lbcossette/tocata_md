@@ -3,6 +3,72 @@ from scipy.stats import gaussian_kde
 import numpy as np
 import math
 from matplotlib.patches import Ellipse
+from copy import deepcopy
+import re
+
+
+########################################################################
+#																	   #
+#	  Plot calculated features for each residue and each trajectory	   #
+#																	   #
+########################################################################
+
+
+def plot_trajs(trajectories, trajectory_atoms, sequence, trajins, timeskip, trajout):
+#
+	print("Plotting trajectory features...")
+	
+	for i in range(len(sequence)):
+	#
+		matches = []
+		match_text = []
+		
+		for j in range(len(trajectory_atoms)):
+		#
+			if int(re.match("\w+\.(\d+)", trajectory_atoms[j]).group(1)) == sequence[i]:
+			#
+				matches.append(j)
+				
+				match_text.append(trajectory_atoms[j])
+			#
+		#
+		
+		for j in range(len(trajins)):
+		#
+		traj_name = re.match("[\.\/]*(.+?)\..+", trajins[j]).group(1)
+	
+			time = np.arange(0.0, float(len(trajectories[j]))*timeskip/1000.0, timeskip/1000.0)
+	
+			match_features = []
+	
+			for k in range(len(matches)):
+			#
+				feature = []
+		
+				for l in range(len(trajectories[j])):
+				#
+					feature.append(trajectories[j][l][matches[k]])
+				#
+		
+				match_features.append(deepcopy(feature))
+			#
+	
+			for k in range(len(matches)):
+			#
+				plt.subplot(len(matches),1,k+1)
+				
+				plt.plot(time, match_features[k])
+				plt.title(match_text[k])
+			#
+			
+			plt.xlabel("Time (ns)")
+			
+			plt.savefig("{:s}_{:s}_{:d}.pdf".format(trajout, traj_name, sequence[i]))
+			
+			plt.close()
+		#
+	#
+#
 
 
 ########################################################################
@@ -64,6 +130,50 @@ def plot_timescales(traj_tica, max_i, savepath):
 	
 	plt.savefig(savepath)
 	plt.close()
+#
+
+
+########################################################################
+#																	   #
+#	 		   		 Plot the results of a tICA scan				   #
+#																	   #
+########################################################################
+
+
+def plot_scan(compares, centers, out_root):
+#
+	top20s = [[0.0, 0.0] for i in range(len(compares))]
+	
+	for i in range(len(compares)):
+	#
+		ord_coss = deepcopy(compares[i][0])
+		ord_coss = np.sort(np.absolute(ord_coss))
+		
+		ord_rtimes = deepcopy(compares[i][1])
+		ord_rtimes = np.sort(np.absolute(ord_rtimes))
+		
+		pos10 = int(len(ord_coss) / 10)
+		
+		top_line_x = [centers[0], centers[-1]]
+		coss_top10 = [ord_coss[pos10], ord_coss[pos10]]
+		rtimes_top10 = [ord_rtimes[pos10], ord_rtimes[pos10]]
+		
+		x_vals = np.arange(centers[0], centers[-1] + 1, 10)
+		
+		plt.plot(centers, np.absolute(compares[i][0]))
+		plt.plot(top_line_x, coss_top10)
+		
+		plt.plot(centers, np.absolute(compares[i][1]))
+		plt.plot(top_line_x, rtimes_top10)
+		
+		plt.xticks(x_vals, map(str, x_vals))
+		
+		plt.xlim(centers[0], centers[-1])
+		
+		plt.savefig("{:s}_scan_EVec_{:d}.pdf".format(out_root, i+1))
+		
+		plt.close()
+	#
 #
 
 
